@@ -69,14 +69,71 @@ resource "aws_route_table_association" "b" {
   route_table_id = aws_route_table.private_rt.id
 }
 
+# EC2 in public subnet
+resource "aws_instance" "bastion" {
+  ami                         = "ami-01032886170466a16"
+  instance_type               = "t3.micro"
+  subnet_id                   = aws_subnet.public_subnet.id
+  associate_public_ip_address = true
+  key_name                    = "mykey"
+
+  vpc_security_group_ids = [aws_security_group.ssh.id]
+
+  tags = {
+    Name = "BastionHost"
+  }
+}
+
+# Public EC2 SG: allow ssh
+resource "aws_security_group" "ssh" {
+  name        = "allow_ssh"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["PUBLIC_IP/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 # EC2 in private subnet
 resource "aws_instance" "web" {
   ami           = "ami-01032886170466a16"
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.private_subnet.id
+  key_name      = "mykey"
 
   tags = {
     Name = "WebServer"
+  }
+}
+
+# Private EC2 SG
+resource "aws_security_group" "private_sg" {
+  name   = "allow_from_bastion"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    # authorise bastion only
+    security_groups = [aws_security_group.ssh.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
