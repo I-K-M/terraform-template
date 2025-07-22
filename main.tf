@@ -15,12 +15,88 @@ resource "aws_subnet" "public_subnet" {
   map_public_ip_on_launch = true
 }
 
+# Network ACL for Public Subnet (Bastion)
+resource "aws_network_acl" "public_nacl" {
+  vpc_id = aws_vpc.main.id
+  subnet_ids = [aws_subnet.public_subnet.id]
+  tags = {
+    Name = "PublicSubnetNACL"
+  }
+}
+
+# Inbound rules (allow SSH and ephemeral ports)
+resource "aws_network_acl_rule" "public_inbound_ssh" {
+  network_acl_id = aws_network_acl.public_nacl.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = var.my_ip
+  from_port      = 22
+  to_port        = 22
+}
+
+resource "aws_network_acl_rule" "public_inbound_ephemeral" {
+  network_acl_id = aws_network_acl.public_nacl.id
+  rule_number    = 110
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 1024
+  to_port        = 65535
+}
+
+# Outbound rules
+resource "aws_network_acl_rule" "public_outbound_all" {
+  network_acl_id = aws_network_acl.public_nacl.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "-1"
+  rule_action    = "allow"
+  cidr_block     = "0.0.0.0/0"
+}
+
 # Private subnet
 resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.20.2.0/24"
   availability_zone = "eu-west-3a"
 }
+
+# Network ACL for Private Subnet
+resource "aws_network_acl" "private_nacl" {
+  vpc_id     = aws_vpc.main.id
+  subnet_ids = [aws_subnet.private_subnet.id]
+  tags = {
+    Name = "PrivateSubnetNACL"
+  }
+}
+
+# Inbound (from Bastion on port 22)
+resource "aws_network_acl_rule" "private_inbound_ssh" {
+  network_acl_id = aws_network_acl.private_nacl.id
+  rule_number    = 100
+  egress         = false
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.20.1.0/24" # subnet public
+  from_port      = 22
+  to_port        = 22
+}
+
+# Outbound (ephemeral ports to respond to SSH)
+resource "aws_network_acl_rule" "private_outbound_ephemeral" {
+  network_acl_id = aws_network_acl.private_nacl.id
+  rule_number    = 100
+  egress         = true
+  protocol       = "tcp"
+  rule_action    = "allow"
+  cidr_block     = "10.20.1.0/24"
+  from_port      = 1024
+  to_port        = 65535
+}
+
 
 # Internet Gateway
 resource "aws_internet_gateway" "gw" {
@@ -110,6 +186,8 @@ resource "aws_instance" "web" {
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.private_subnet.id
   key_name      = "mykey"
+
+  vpc_security_group_ids = [aws_security_group.private_sg.id]
 
   tags = {
     Name = "WebServer"
