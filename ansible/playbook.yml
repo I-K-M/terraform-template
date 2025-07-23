@@ -1,0 +1,29 @@
+- name: EC2 basic config
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Packageq updates
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Installing common packages
+      apt:
+        name: "{{ packages_common }}"
+        state: present
+
+    - name: Customised users
+      loop: "{{ users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      user:
+        name: "{{ item.name }}"
+        state: present
+        shell: /bin/bash
+
+    - name: Adding SSH key for each user
+      authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ item.ssh_key }}"
+      loop: "{{ users }}"

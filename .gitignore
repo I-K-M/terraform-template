@@ -9,3 +9,11 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .terraform.lock.hcl
+ansible/inventory.ini
+ansible/group_vars/vault.yml
+ansible/group_vars/secrets.yml
+ansible/group_vars/*
+*.retry
+*.log
+*.pem
+*.key
