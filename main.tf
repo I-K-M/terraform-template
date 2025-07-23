@@ -226,3 +226,12 @@ resource "aws_vpc_endpoint" "s3" {
     aws_route_table.private_rt.id
   ]
 }
+
+# Outputs
+output "bastion_ip" {
+  value = aws_instance.bastion.public_ip
+}
+
+output "web_private_ip" {
+  value = aws_instance.web.private_ip
+}
