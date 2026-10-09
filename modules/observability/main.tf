@@ -4,8 +4,8 @@ resource "aws_kms_key" "logs" {
   description             = "Encryption for the platform CloudTrail bucket"
   enable_key_rotation     = true
   deletion_window_in_days = 30
-  policy                  = jsonencode({
-    Version   = "2012-10-17"
+  policy = jsonencode({
+    Version = "2012-10-17"
     Statement = [
       {
         Sid       = "AccountAdministration"
@@ -75,7 +75,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "trail" {
 resource "aws_s3_bucket_policy" "trail" {
   bucket = aws_s3_bucket.trail.id
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Sid       = "DenyInsecureTransport"
@@ -111,7 +111,7 @@ resource "aws_s3_bucket_policy" "trail" {
 }
 
 resource "aws_cloudtrail" "main" {
-  name                          = "${var.name_prefix}-trail"
+  name = "${var.name_prefix}-trail"
   s3_bucket_name                = aws_s3_bucket.trail.id
   is_multi_region_trail         = true
   include_global_service_events = true
@@ -133,7 +133,7 @@ resource "aws_cloudtrail" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "vpc_flow" {
-  name              = "/aws/vpc/${var.name_prefix}/flowlogs"
+  name = "/aws/vpc/${var.name_prefix}/flowlogs"
   retention_in_days = 30
 }
 
@@ -148,15 +148,15 @@ data "aws_iam_policy_document" "flow_assume" {
 }
 
 resource "aws_iam_role" "flow" {
-  name_prefix        = "${var.name_prefix}-flow-"
+  name_prefix = "${var.name_prefix}-flow-"
   assume_role_policy = data.aws_iam_policy_document.flow_assume.json
 }
 
 resource "aws_iam_role_policy" "flow" {
-  name   = "write-flowlogs"
-  role   = aws_iam_role.flow.id
+  name = "write-flowlogs"
+  role = aws_iam_role.flow.id
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
@@ -189,11 +189,11 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 resource "aws_cloudwatch_log_metric_filter" "rejected" {
-  name           = "${var.name_prefix}-rejected-flows"
+  name = "${var.name_prefix}-rejected-flows"
   pattern        = "[version, account, eni, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, start, end, action = REJECT, logstatus]"
   log_group_name = aws_cloudwatch_log_group.vpc_flow.name
   metric_transformation {
-    name      = "RejectedFlows"
+    name = "RejectedFlows"
     namespace = "SecurePlatform/VPC"
     value     = "1"
   }

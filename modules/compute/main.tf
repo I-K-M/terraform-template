@@ -1,6 +1,6 @@
 data "aws_ssm_parameter" "ubuntu" {
   count = var.ami_id == null ? 1 : 0
-  name  = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
+  name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
 
 locals {
@@ -8,9 +8,9 @@ locals {
 }
 
 resource "aws_iam_role" "ssm" {
-  name_prefix        = "${var.name_prefix}-ssm-"
+  name_prefix = "${var.name_prefix}-ssm-"
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
       Principal = { Service = "ec2.amazonaws.com" }
@@ -20,13 +20,13 @@ resource "aws_iam_role" "ssm" {
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.ssm.name
+  role = aws_iam_role.ssm.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "ssm" {
   name_prefix = "${var.name_prefix}-instance-"
-  role        = aws_iam_role.ssm.name
+  role = aws_iam_role.ssm.name
 }
 
 resource "aws_security_group" "workload" {
