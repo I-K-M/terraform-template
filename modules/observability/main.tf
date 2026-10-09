@@ -4,33 +4,33 @@ resource "aws_kms_key" "logs" {
   description             = "Encryption for the platform CloudTrail bucket"
   enable_key_rotation     = true
   deletion_window_in_days = 30
-  policy = jsonencode({
-    Version = "2012-10-17"
+  policy                  = jsonencode({
+    Version   = "2012-10-17"
     Statement = [
       {
-        Sid    = "AccountAdministration"
-        Effect = "Allow"
+        Sid       = "AccountAdministration"
+        Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
-        Action = "kms:*"
-        Resource = "*"
+        Action    = "kms:*"
+        Resource  = "*"
       },
       {
-        Sid    = "CloudTrailGenerateKey"
-        Effect = "Allow"
+        Sid       = "CloudTrailGenerateKey"
+        Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
-        Action = "kms:GenerateDataKey*"
-        Resource = "*"
+        Action    = "kms:GenerateDataKey*"
+        Resource  = "*"
         Condition = {
           StringEquals = { "aws:SourceArn" = "arn:aws:cloudtrail:${var.region}:${var.aws_account_id}:trail/${var.name_prefix}-trail" }
-          StringLike = { "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:aws:cloudtrail:*:${var.aws_account_id}:trail/*" }
+          StringLike   = { "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:aws:cloudtrail:*:${var.aws_account_id}:trail/*" }
         }
       },
       {
-        Sid    = "CloudTrailDescribeKey"
-        Effect = "Allow"
+        Sid       = "CloudTrailDescribeKey"
+        Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
-        Action = "kms:DescribeKey"
-        Resource = "*"
+        Action    = "kms:DescribeKey"
+        Resource  = "*"
       }
     ]
   })
@@ -75,7 +75,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "trail" {
 resource "aws_s3_bucket_policy" "trail" {
   bucket = aws_s3_bucket.trail.id
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [
       {
         Sid       = "DenyInsecureTransport"
@@ -101,7 +101,7 @@ resource "aws_s3_bucket_policy" "trail" {
         Resource  = "${aws_s3_bucket.trail.arn}/AWSLogs/${var.aws_account_id}/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl"   = "bucket-owner-full-control"
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
             "aws:SourceArn" = "arn:aws:cloudtrail:${var.region}:${var.aws_account_id}:trail/${var.name_prefix}-trail"
           }
         }
@@ -153,14 +153,14 @@ resource "aws_iam_role" "flow" {
 }
 
 resource "aws_iam_role_policy" "flow" {
-  name = "write-flowlogs"
-  role = aws_iam_role.flow.id
+  name   = "write-flowlogs"
+  role   = aws_iam_role.flow.id
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
         Resource = "${aws_cloudwatch_log_group.vpc_flow.arn}:*"
       }
     ]
@@ -168,13 +168,13 @@ resource "aws_iam_role_policy" "flow" {
 }
 
 resource "aws_flow_log" "main" {
-  vpc_id               = var.vpc_id
-  traffic_type         = "ALL"
-  log_destination_type = "cloud-watch-logs"
-  log_destination      = aws_cloudwatch_log_group.vpc_flow.arn
-  iam_role_arn         = aws_iam_role.flow.arn
+  vpc_id                   = var.vpc_id
+  traffic_type             = "ALL"
+  log_destination_type     = "cloud-watch-logs"
+  log_destination          = aws_cloudwatch_log_group.vpc_flow.arn
+  iam_role_arn             = aws_iam_role.flow.arn
   max_aggregation_interval = 600
-  depends_on = [aws_iam_role_policy.flow]
+  depends_on               = [aws_iam_role_policy.flow]
 }
 
 resource "aws_sns_topic" "alarms" {
