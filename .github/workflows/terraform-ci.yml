@@ -17,7 +17,10 @@ jobs:
         with:
           terraform_version: "1.13.5"
       - name: Terraform fmt
-        run: terraform fmt -check -recursive
+        run: |
+          terraform fmt -recursive
+          git diff --no-ext-diff -- . ':!*.md'
+          git diff --exit-code -- . ':!*.md'
       - name: Init without real backend
         run: terraform init -backend=false -input=false
       - name: Validate
