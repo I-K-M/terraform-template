@@ -83,21 +83,12 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# VPC-scoped HTTPS is accepted at the interface endpoints. No Internet ingress.
+# No ingress by default. Root attaches rules for approved EC2 security groups.
 resource "aws_security_group" "endpoints" {
   name_prefix = "${var.name_prefix}-endpoints-"
   description = "SSM PrivateLink endpoints"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "${var.name_prefix}-endpoints" }
-}
-
-resource "aws_vpc_security_group_ingress_rule" "endpoints_https" {
-  security_group_id = aws_security_group.endpoints.id
-  cidr_ipv4         = var.vpc_cidr
-  from_port         = 443
-  to_port           = 443
-  ip_protocol       = "tcp"
-  description       = "TLS from inside VPC only"
 }
 
 resource "aws_vpc_endpoint" "ssm" {

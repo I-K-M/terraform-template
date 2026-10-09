@@ -13,4 +13,19 @@ run "secure_defaults" {
     condition     = module.compute.bastion_public_ip == null
     error_message = "The bastion must be absent by default."
   }
+
+  assert {
+    condition     = module.compute.workload_public_ip_enabled == false
+    error_message = "Workload must never receive a public IPv4 address."
+  }
+
+  assert {
+    condition     = module.compute.workload_imdsv2_required == "required"
+    error_message = "EC2 must reject IMDSv1."
+  }
+
+  assert {
+    condition     = module.compute.workload_ebs_encrypted == true
+    error_message = "Root volume encryption must be enabled."
+  }
 }

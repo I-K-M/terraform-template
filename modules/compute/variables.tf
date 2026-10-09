@@ -10,3 +10,4 @@ variable "enable_nat_gateway" { type = bool }
 variable "enable_bastion" { type = bool }
 variable "bastion_allowed_cidr" { type = string }
 variable "bastion_key_name" { type = string }
+variable "ebs_kms_key_arn" { type = string }

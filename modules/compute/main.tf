@@ -84,6 +84,7 @@ resource "aws_instance" "workload" {
   root_block_device {
     encrypted             = true
     volume_type           = "gp3"
+    kms_key_id            = var.ebs_kms_key_arn
     delete_on_termination = true
   }
 
@@ -115,6 +116,16 @@ resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
   description       = "SSH from explicitly approved single source"
 }
 
+resource "aws_vpc_security_group_egress_rule" "bastion_ssm" {
+  count                        = var.enable_bastion ? 1 : 0
+  security_group_id            = aws_security_group.bastion[0].id
+  referenced_security_group_id = var.endpoint_security_group_id
+  ip_protocol                  = "tcp"
+  from_port                    = 443
+  to_port                      = 443
+  description                  = "SSM PrivateLink only for optional bastion"
+}
+
 resource "aws_vpc_security_group_egress_rule" "bastion_to_workload" {
   count                        = var.enable_bastion ? 1 : 0
   security_group_id            = aws_security_group.bastion[0].id
@@ -142,16 +153,19 @@ resource "aws_instance" "bastion" {
   subnet_id                   = var.public_subnet_id
   associate_public_ip_address = true
   key_name                    = var.bastion_key_name
+  iam_instance_profile        = aws_iam_instance_profile.ssm.name
   vpc_security_group_ids      = [aws_security_group.bastion[0].id]
   monitoring                  = true
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 1
+    instance_metadata_tags      = "disabled"
   }
   root_block_device {
     encrypted             = true
     volume_type           = "gp3"
+    kms_key_id            = var.ebs_kms_key_arn
     delete_on_termination = true
   }
   tags = { Name = "${var.name_prefix}-bastion" }

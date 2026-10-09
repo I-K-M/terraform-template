@@ -12,3 +12,6 @@
   ansible.builtin.service:
     name: ssh
     state: reloaded
+  when:
+    - not hardening_disable_ssh | bool
+    - "'ssh.service' in ansible_facts.services"

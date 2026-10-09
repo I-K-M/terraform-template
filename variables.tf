@@ -29,8 +29,8 @@ variable "vpc_cidr" {
   default = "10.20.0.0/16"
 
   validation {
-    condition     = can(cidrnetmask(var.vpc_cidr))
-    error_message = "vpc_cidr must be a valid IPv4 CIDR."
+    condition     = can(cidrnetmask(var.vpc_cidr)) && can(regex("^[0-9.]+/(1[6-9]|20)$", var.vpc_cidr))
+    error_message = "vpc_cidr must be a valid IPv4 CIDR between /16 and /20 for /24 to /28 subnets."
   }
 }
 
@@ -96,4 +96,15 @@ variable "audit_s3_bucket_arns" {
   description = "S3 bucket ARNs for billable CloudTrail object data events."
   type        = list(string)
   default     = []
+}
+
+variable "ebs_kms_key_arn" {
+  description = "Optional customer managed KMS key ARN for EBS; otherwise use the account's default EBS encryption key."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.ebs_kms_key_arn == null ? true : can(regex("^arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key/[A-Za-z0-9-]+$", var.ebs_kms_key_arn))
+    error_message = "Specify a valid AWS KMS key ARN or null."
+  }
 }

@@ -4,7 +4,8 @@
   become: true
   gather_facts: true
   vars:
-    hardening_disable_ssh: true
+    hardening_disable_ssh: false
+    hardening_confirm_ssm_access: false
   pre_tasks:
     - name: Require Ubuntu OS
       ansible.builtin.assert:

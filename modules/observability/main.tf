@@ -1,5 +1,3 @@
-data "aws_caller_identity" "current" {}
-
 resource "aws_kms_key" "logs" {
   description             = "Encryption for the platform CloudTrail bucket"
   enable_key_rotation     = true
@@ -39,6 +37,10 @@ resource "aws_kms_key" "logs" {
 resource "aws_s3_bucket" "trail" {
   bucket_prefix = "${var.name_prefix}-audit-"
   force_destroy = false
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "trail" {
@@ -144,6 +146,16 @@ data "aws_iam_policy_document" "flow_assume" {
       type        = "Service"
       identifiers = ["vpc-flow-logs.amazonaws.com"]
     }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [var.aws_account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:ec2:${var.region}:${var.aws_account_id}:vpc-flow-log/*"]
+    }
   }
 }
 
@@ -159,9 +171,16 @@ resource "aws_iam_role_policy" "flow" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid      = "WriteOnlyToAssignedFlowLogGroup"
         Effect   = "Allow"
-        Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
         Resource = "${aws_cloudwatch_log_group.vpc_flow.arn}:*"
+      },
+      {
+        Sid      = "DescribeLogGroups"
+        Effect   = "Allow"
+        Action   = ["logs:DescribeLogGroups"]
+        Resource = "*"
       }
     ]
   })
@@ -177,8 +196,91 @@ resource "aws_flow_log" "main" {
   depends_on               = [aws_iam_role_policy.flow]
 }
 
+resource "aws_kms_key" "alarms" {
+  description             = "Encrypt SNS alerts about the platform's security events"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableAccountIAM"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AllowSecurityEventsAndCloudWatch"
+        Effect    = "Allow"
+        Principal = { Service = ["events.amazonaws.com", "cloudwatch.amazonaws.com"] }
+        Action    = ["kms:Decrypt", "kms:GenerateDataKey*"]
+        Resource  = "*"
+      }
+    ]
+  })
+}
+
 resource "aws_sns_topic" "alarms" {
-  name = "${var.name_prefix}-alerts"
+  name              = "${var.name_prefix}-alerts"
+  kms_master_key_id = aws_kms_key.alarms.arn
+}
+
+resource "aws_cloudwatch_event_rule" "cloudtrail_tamper" {
+  name        = "${var.name_prefix}-trail-tamper"
+  description = "Alarm on CloudTrail logging being stopped, updated or deleted"
+  event_pattern = jsonencode({
+    source        = ["aws.cloudtrail"]
+    "detail-type" = ["AWS API Call via CloudTrail"]
+    detail = {
+      eventSource = ["cloudtrail.amazonaws.com"]
+      eventName   = ["StopLogging", "DeleteTrail", "UpdateTrail"]
+    }
+  })
+}
+
+# SNS is restricted to the specific alarm and EventBridge rule, not arbitrary publishers.
+resource "aws_sns_topic_policy" "alarms" {
+  arn = aws_sns_topic.alarms.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AccountAdministration"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
+        Action    = "sns:*"
+        Resource  = aws_sns_topic.alarms.arn
+      },
+      {
+        Sid       = "CloudWatchAlarmPublisher"
+        Effect    = "Allow"
+        Principal = { Service = "cloudwatch.amazonaws.com" }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.alarms.arn
+        Condition = {
+          ArnEquals = { "aws:SourceArn" = aws_cloudwatch_metric_alarm.rejected.arn }
+        }
+      },
+      {
+        Sid       = "EventBridgePublisher"
+        Effect    = "Allow"
+        Principal = { Service = "events.amazonaws.com" }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.alarms.arn
+        Condition = {
+          ArnEquals = { "aws:SourceArn" = aws_cloudwatch_event_rule.cloudtrail_tamper.arn }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "trail_tamper_alerts" {
+  rule       = aws_cloudwatch_event_rule.cloudtrail_tamper.name
+  target_id  = "encrypted-security-alerts"
+  arn        = aws_sns_topic.alarms.arn
+  depends_on = [aws_sns_topic_policy.alarms]
 }
 
 resource "aws_sns_topic_subscription" "email" {

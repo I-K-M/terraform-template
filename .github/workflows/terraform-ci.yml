@@ -1,8 +1,7 @@
 name: Terraform security checks
+# Manual only: do not consume GitHub Actions minutes on pushes/PRs.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -16,11 +15,10 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.13.5"
+      - name: Offline security regression assertions
+        run: python3 scripts/security_regression.py
       - name: Terraform fmt
-        run: |
-          terraform fmt -recursive
-          git diff --no-ext-diff -- . ':!*.md'
-          git diff --exit-code -- . ':!*.md'
+        run: terraform fmt -check -recursive
       - name: Init without real backend
         run: terraform init -backend=false -input=false
       - name: Validate
@@ -29,6 +27,8 @@ jobs:
         run: |
           terraform -chdir=bootstrap/state-backend init -backend=false -input=false
           terraform -chdir=bootstrap/state-backend validate -no-color
+      - name: Native Terraform mock-provider tests
+        run: terraform test -no-color
       - name: Trivy IaC
         uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # v0.34.0
         with:
