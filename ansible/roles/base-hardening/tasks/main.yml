@@ -1,0 +1,113 @@
+---
+- name: Install basic audit and hardening packages
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - apparmor
+      - apparmor-utils
+      - unattended-upgrades
+      - needrestart
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure audit daemon is enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Ensure AppArmor is enabled
+  ansible.builtin.service:
+    name: apparmor
+    state: started
+    enabled: true
+
+- name: Ensure journald configuration directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Persist journald logs
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-security.conf
+    content: |
+      [Journal]
+      Storage=persistent
+      Compress=yes
+      SystemMaxUse=500M
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart journald
+
+- name: Restrict kernel pointers and hardlinks
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-security.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      kernel.kptr_restrict = 2
+      kernel.dmesg_restrict = 1
+      fs.suid_dumpable = 0
+      kernel.yama.ptrace_scope = 1
+      fs.protected_hardlinks = 1
+      fs.protected_symlinks = 1
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+  notify: reload sysctl
+
+- name: Configure unattended security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Check if OpenSSH server configuration is present
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config
+  register: sshd_config
+
+- name: Disable password SSH authentication, when SSH is retained
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/20-hardening.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      AllowAgentForwarding no
+    owner: root
+    group: root
+    mode: "0644"
+  when: sshd_config.stat.exists
+  notify: reload ssh
+
+- name: Assert Session Manager is independently verified before disabling SSH
+  ansible.builtin.assert:
+    that:
+      - hardening_confirm_ssm_access | bool
+    fail_msg: "Refusing to stop SSH before an independent Session Manager session was tested."
+  when: hardening_disable_ssh | bool
+
+- name: Check installed services before changing access
+  ansible.builtin.service_facts: {}
+
+- name: Remove SSH listener only after Session Manager confirmation
+  ansible.builtin.service:
+    name: ssh
+    enabled: false
+    state: stopped
+  when:
+    - hardening_disable_ssh | bool
+    - "'ssh.service' in ansible_facts.services"

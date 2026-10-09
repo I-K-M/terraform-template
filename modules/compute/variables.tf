@@ -1,0 +1,13 @@
+variable "name_prefix" { type = string }
+variable "vpc_id" { type = string }
+variable "private_subnet_id" { type = string }
+variable "public_subnet_id" { type = string }
+variable "endpoint_security_group_id" { type = string }
+variable "s3_prefix_list_id" { type = string }
+variable "instance_type" { type = string }
+variable "ami_id" { type = string }
+variable "enable_nat_gateway" { type = bool }
+variable "enable_bastion" { type = bool }
+variable "bastion_allowed_cidr" { type = string }
+variable "bastion_key_name" { type = string }
+variable "ebs_kms_key_arn" { type = string }

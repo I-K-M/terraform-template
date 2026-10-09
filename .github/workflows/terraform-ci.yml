@@ -1,0 +1,38 @@
+name: Terraform security checks
+# Manual only: do not consume GitHub Actions minutes on pushes/PRs.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.13.5"
+      - name: Offline security regression assertions
+        run: python3 scripts/security_regression.py
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+      - name: Init without real backend
+        run: terraform init -backend=false -input=false
+      - name: Validate
+        run: terraform validate -no-color
+      - name: Bootstrap fmt and validation
+        run: |
+          terraform -chdir=bootstrap/state-backend init -backend=false -input=false
+          terraform -chdir=bootstrap/state-backend validate -no-color
+      - name: Native Terraform mock-provider tests
+        run: terraform test -no-color
+      - name: Trivy IaC
+        uses: aquasecurity/trivy-action@c1824fd6edce30d7ab345a9989de00bbd46ef284 # v0.34.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"

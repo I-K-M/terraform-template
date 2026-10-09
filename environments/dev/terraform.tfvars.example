@@ -1,0 +1,8 @@
+environment = "dev"
+aws_account_id = "123456789012"
+aws_region = "eu-west-3"
+availability_zone = "eu-west-3a"
+enable_bastion = false
+enable_nat_gateway = false
+enable_observability = true
+# NAT costs money. With no NAT, OS apt updates cannot reach public repositories.

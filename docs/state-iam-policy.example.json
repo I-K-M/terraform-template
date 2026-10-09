@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListOnlyEnvironmentState",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::REPLACE_STATE_BUCKET",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "terraform-template/dev/terraform.tfstate",
+            "terraform-template/dev/terraform.tfstate.tflock"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ReadWriteStateAndLock",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::REPLACE_STATE_BUCKET/terraform-template/dev/terraform.tfstate",
+        "arn:aws:s3:::REPLACE_STATE_BUCKET/terraform-template/dev/terraform.tfstate.tflock"
+      ]
+    },
+    {
+      "Sid": "DeleteOnlyLock",
+      "Effect": "Allow",
+      "Action": [
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::REPLACE_STATE_BUCKET/terraform-template/dev/terraform.tfstate.tflock"
+    },
+    {
+      "Sid": "EncryptStateWithCustomerKey",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:eu-west-3:123456789012:key/REPLACE_KEY_ID"
+    }
+  ]
+}
