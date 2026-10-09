@@ -1,0 +1,76 @@
+---
+- name: Install basic audit and hardening packages
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - apparmor
+      - apparmor-utils
+      - unattended-upgrades
+      - needrestart
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure audit daemon is enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Ensure AppArmor is enabled
+  ansible.builtin.service:
+    name: apparmor
+    state: started
+    enabled: true
+
+- name: Persist journald logs
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-security.conf
+    content: |
+      [Journal]
+      Storage=persistent
+      Compress=yes
+      SystemMaxUse=500M
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart journald
+
+- name: Restrict kernel pointers and hardlinks
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-security.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      kernel.kptr_restrict = 2
+      kernel.dmesg_restrict = 1
+      fs.protected_hardlinks = 1
+      fs.protected_symlinks = 1
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+  notify: reload sysctl
+
+- name: Disable password SSH authentication, when SSH is retained
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/20-hardening.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      AllowAgentForwarding no
+    owner: root
+    group: root
+    mode: "0644"
+  when: not hardening_disable_ssh | bool
+  notify: reload ssh
+
+- name: Remove SSH listener on SSM-only hosts
+  ansible.builtin.service:
+    name: ssh
+    enabled: false
+    state: stopped
+  when: hardening_disable_ssh | bool

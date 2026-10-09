@@ -1,0 +1,8 @@
+environment = "prod"
+aws_account_id = "123456789012"
+aws_region = "eu-west-3"
+availability_zone = "eu-west-3a"
+enable_bastion = false
+enable_nat_gateway = true
+enable_observability = true
+# For real HA add multiple AZs, immutable builds and a recovery design first.

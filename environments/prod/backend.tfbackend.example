@@ -1,0 +1,5 @@
+bucket = "replace-with-your-state-bucket"
+key = "terraform-template/prod/terraform.tfstate"
+region = "eu-west-3"
+use_lockfile = true
+encrypt = true

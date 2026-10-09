@@ -1,29 +1,15 @@
-- name: EC2 basic config
+---
+- name: Harden Ubuntu EC2 workload
   hosts: all
-  become: yes
-
-  tasks:
-    - name: Packageq updates
-      apt:
-        update_cache: yes
-        upgrade: dist
-
-    - name: Installing common packages
-      apt:
-        name: "{{ packages_common }}"
-        state: present
-
-    - name: Customised users
-      loop: "{{ users }}"
-      loop_control:
-        label: "{{ item.name }}"
-      user:
-        name: "{{ item.name }}"
-        state: present
-        shell: /bin/bash
-
-    - name: Adding SSH key for each user
-      authorized_key:
-        user: "{{ item.name }}"
-        key: "{{ item.ssh_key }}"
-      loop: "{{ users }}"
+  become: true
+  gather_facts: true
+  vars:
+    hardening_disable_ssh: true
+  pre_tasks:
+    - name: Require Ubuntu OS
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Ubuntu'
+        fail_msg: "This baseline currently supports Ubuntu only."
+  roles:
+    - base-hardening
