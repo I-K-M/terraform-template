@@ -2,6 +2,7 @@
 
 offline-check:
 	python3 scripts/security_regression.py
+	python3 -m unittest discover -s scripts -p 'test_*.py'
 
 terraform-check:
 	terraform fmt -check -recursive

@@ -90,6 +90,7 @@
     owner: root
     group: root
     mode: "0644"
+    validate: "/usr/sbin/sshd -t -f %s"
   when: sshd_config.stat.exists
   notify: reload ssh
 

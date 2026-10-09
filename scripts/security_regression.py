@@ -43,6 +43,23 @@ state = load("bootstrap/state-backend/main.tf")
 ci = load(".github/workflows/terraform-ci.yml")
 ansible = load("ansible/roles/base-hardening/tasks/main.yml")
 
+def unrestricted_ingress():
+    # SG egress to 0.0.0.0/0 is a separate, documented NAT choice.
+    for path in ROOT.rglob("*.tf"):
+        if ".terraform" in path.parts:
+            continue
+        source = path.read_text(encoding="utf-8")
+        for match in re.finditer(
+            r'(?ms)^resource\s+"aws_vpc_security_group_ingress_rule"\s+"[^"]+"\s*\{(.*?)^\}',
+            source,
+        ):
+            block = match.group(1)
+            if re.search(r'cidr_ipv4\s*=\s*"0\.0\.0\.0/0"', block) or re.search(r'cidr_ipv6\s*=\s*"::/0"', block):
+                return True
+    return False
+
+assert_control("No unrestricted IPv4/IPv6 security group ingress", not unrestricted_ingress())
+
 assert_control("No VPC-wide access to SSM endpoints", 'cidr_ipv4         = var.vpc_cidr' not in network)
 assert_control("SSM ingress is scoped to workload SG", 'referenced_security_group_id = module.compute.workload_security_group_id' in root)
 assert_control("SSM ingress is scoped to optional bastion SG", 'referenced_security_group_id = module.compute.bastion_security_group_id' in root)
@@ -61,6 +78,11 @@ assert_control("State bucket uses customer-managed KMS encryption", 'kms_master_
 assert_control("CloudTrail multi-region and log integrity", 'is_multi_region_trail         = true' in audit and 'enable_log_file_validation    = true' in audit)
 assert_control("CloudTrail log bucket deletion protected", 'prevent_destroy = true' in audit)
 assert_control("CloudTrail has a KMS key", 'kms_key_id                    = aws_kms_key.logs.arn' in audit)
+assert_control("CloudTrail Bucket Keys have a dedicated decrypt permission", 'Sid       = "CloudTrailBucketKeyDecrypt"' in audit and 'Action    = "kms:Decrypt"' in audit)
+assert_control("CloudTrail KMS GenerateDataKey remains ARN scoped", '"aws:SourceArn" = "arn:aws:cloudtrail:' in audit)
+assert_control("Production requires a confirmed alert destination", 'var.environment != "prod" || (var.enable_observability && can(regex("@", var.alert_email)))' in load("variables.tf"))
+assert_control("OIDC workflow restricted to main", "if: github.ref == 'refs/heads/main'" in load(".github/workflows/deploy.yml"))
+assert_control("SSHD candidate configuration is validated before replacement", 'validate: "/usr/sbin/sshd -t -f %s"' in ansible)
 assert_control("CloudTrail tampering alarm", '"StopLogging", "DeleteTrail", "UpdateTrail"' in audit)
 assert_control("SNS alerts encrypted", 'kms_master_key_id = aws_kms_key.alarms.arn' in audit)
 assert_control("SSM session required before SSH shutdown", 'hardening_confirm_ssm_access | bool' in ansible)

@@ -38,6 +38,11 @@ variable "availability_zone" {
   description = "Single-AZ template; production HA needs more than one instance and zone."
   type        = string
   default     = "eu-west-3a"
+
+  validation {
+    condition     = startswith(var.availability_zone, var.aws_region) && length(var.availability_zone) == length(var.aws_region) + 1
+    error_message = "availability_zone must match aws_region and end in one AZ letter."
+  }
 }
 
 variable "instance_type" {
@@ -87,9 +92,14 @@ variable "enable_observability" {
 }
 
 variable "alert_email" {
-  description = "Optional SNS alarm email; confirmation required."
+  description = "SNS alarm email; mandatory when deploying production."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.environment != "prod" || (var.enable_observability && can(regex("@", var.alert_email)))
+    error_message = "Production must enable observability and supply alert_email; verify the SNS subscription after deployment."
+  }
 }
 
 variable "audit_s3_bucket_arns" {

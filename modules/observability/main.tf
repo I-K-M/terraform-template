@@ -24,6 +24,15 @@ resource "aws_kms_key" "logs" {
         }
       },
       {
+        # CloudTrail requires Decrypt when the destination bucket uses S3 Bucket Keys.
+        # Dedicated CloudTrail-only KMS key; GenerateDataKey remains trail-ARN scoped.
+        Sid       = "CloudTrailBucketKeyDecrypt"
+        Effect    = "Allow"
+        Principal = { Service = "cloudtrail.amazonaws.com" }
+        Action    = "kms:Decrypt"
+        Resource  = "*"
+      },
+      {
         Sid       = "CloudTrailDescribeKey"
         Effect    = "Allow"
         Principal = { Service = "cloudtrail.amazonaws.com" }
