@@ -77,7 +77,9 @@ The GitHub workflow `terraform-ci.yml` is **manual-only**. Push and merge do not
 - Deploy workflow generates a plan only. Approval, AWS OIDC trust policies and branch protection require administrator setup. Never auto-apply from untrusted PRs.
 - Static checks are security preflight, not a production guarantee. Confirm KMS/SNS/EventBridge authorization, VPC Flow Logs and IAM trust through a disposable AWS deployment.
 - CloudTrail audit S3 and state bucket have `prevent_destroy`; changing/removing these resources needs an explicit retention review. KMS keys have a deletion waiting period.
-- SNS/CloudTrail anti-tamper notifications require SNS subscription confirmation; without a recipient and delivery test, they are not an effective alerting system.
+- Production now requires an `alert_email` and enabled observability. Confirm the SNS subscription, use a monitored mailbox, test a real notification and review alarm delivery history.
+- CloudTrail uses an S3 Bucket Key. Its KMS policy deliberately permits the CloudTrail service `kms:Decrypt` on the dedicated log key, as required by AWS; test actual log delivery before treating the monitoring as operational.
+- The manual OIDC plan workflow is restricted to `main`. Configure protected GitHub environments and branch rules separately; YAML checks alone do not replace repository access controls.
 
 ## Security controls & threat model
 

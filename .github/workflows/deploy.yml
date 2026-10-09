@@ -15,6 +15,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
+    # A manual dispatch from an unreviewed branch must never obtain AWS OIDC credentials.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     timeout-minutes: 30
